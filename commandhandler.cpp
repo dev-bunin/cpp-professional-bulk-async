@@ -98,61 +98,67 @@ void DynamicQueue::exec()
 
 void parseCommand(const int maxCommandCount, std::istream &istream)
 {
-	enum CommandType {
-		None,
-		Queue,
-		Limited
-	};
 
-	unique_ptr<QueueBase> command; // Переделать на умные указатели
-	CommandType m_type = CommandType::None;
+	Handler handler(maxCommandCount);
 
 	string line;
 	while(getline(istream, line)) {
 		if (line.empty()) {
 			break;
-		} else if (line == "{") {
-			// Инициализация при необходимости
-			switch (m_type) {
-			case CommandType::Limited:
-				command->exec();
-//				FALLTHROUGH
-
-			case CommandType::None:
-				m_type = CommandType::Queue;
-				command.reset(new DynamicQueue());
-				break;
-
-			case CommandType::Queue:
-				// Ничего не делаем
-				break;
-			}
-		} else if (line == "}") {
-			switch (m_type) {
-			case CommandType::Limited:
-			case CommandType::None:
-				// Что то пошло не так
-				return;
-
-			case CommandType::Queue:
-				break;
-			}
-		} else {
-			if (!command) {
-				m_type = CommandType::Limited;
-				command.reset(new LimitedQueue(maxCommandCount));
-			}
 		}
-		command->addCommand(line);
+		handler.input(line);
+	}
+}
 
-		// Если очередь команд завершилась, удаляем
-		if (command && command->isFinished()) {
-			m_type = CommandType::None;
-			command.reset();
+Handler::Handler(size_t blockSize)
+	:m_blockSize(blockSize)
+{
+}
+
+Handler::~Handler()
+{
+	if (m_command) {
+		m_command->exec();
+	}
+}
+
+void Handler::input(const std::string &data)
+{
+	if (data.empty()) {
+		return;
+	} else if (data == "{") {
+		switch (m_type) {
+		case CommandType::Limited:
+			m_command->exec();
+			//FALLTHROUGH
+
+		case CommandType::None:
+			m_type = CommandType::Queue;
+			m_command.reset(new DynamicQueue());
+			break;
+
+		case CommandType::Queue:
+			// Ничего не делаем
+			break;
+		}
+	} else if (data == "}") {
+		if (m_type != CommandType::Queue) {
+			// Что то пошло не так.
+			// ToDo Обработка ошибки
+			return;
+		}
+	} else {
+		if (!m_command) {
+			m_type = CommandType::Limited;
+			m_command.reset(new LimitedQueue(m_blockSize));
 		}
 	}
 
-	if (command) {
-		command->exec();
+	m_command->addCommand(data);
+
+	// Если очередь команд завершилась, удаляем
+	if (m_command && m_command->isFinished()) {
+		m_type = CommandType::None;
+		m_command.reset();
 	}
 }

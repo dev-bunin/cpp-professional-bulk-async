@@ -5,4 +5,7 @@ project(bulk LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_executable(bulk main.cpp commandhandler.h commandhandler.cpp)
+add_executable(bulk-async
+    main.cpp
+    commandhandler.h commandhandler.cpp
+    asyncsoc.h asyncsoc.cpp)

@@ -4,6 +4,7 @@
 #include <string>
 #include <queue>
 #include <chrono>
+#include <memory>
 
 class QueueInterface {
 public:
@@ -46,6 +47,25 @@ public:
 	void addCommand(const std::string &command) override;
 private:
 	int m_maxCommandCount;
+};
+
+class Handler {
+public:
+	Handler(size_t blockSize);
+	~Handler();
+
+	void input(const std::string &data);
+
+private:
+	enum CommandType {
+		None,
+		Queue,
+		Limited
+	};
+
+	std::unique_ptr<QueueBase> m_command;
+	CommandType m_type = CommandType::None;
+	size_t m_blockSize;
 };
 
 void parseCommand(const int maxCommandCount, std::istream &istream);
