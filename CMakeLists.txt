@@ -8,4 +8,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_executable(bulk-async
     main.cpp
     commandhandler.h commandhandler.cpp
-    asyncsoc.h asyncsoc.cpp)
+    asyncsoc.h asyncsoc.cpp
+    loggerinterface.h
+    consolelogger.h consolelogger.cpp
+    )

@@ -1,25 +1,29 @@
-//#ifndef ASYNCSOC_H
-//#define ASYNCSOC_H
+#ifndef ASYNCSOC_H
+#define ASYNCSOC_H
 
-//#include <map>
-//#include <memory>
+#include <map>
+#include <memory>
+#include <mutex>
 
-//#include "commandhandler.h"
+class Handler;
 
-//class AsyncSoc
-//{
-//public:
-//	using handle = std::size_t;
+class AsyncSoc
+{
+public:
+	using handle = std::size_t;
 
-//	handle connect(std::size_t block_size);
+	static handle connect(std::size_t block_size);
 
-//	void receive(handle handle, const char *data, std::size_t size);
+	static void receive(handle handle, const char *data, std::size_t size);
 
-//	void disconnect(handle handle);
+	static void disconnect(handle handle);
 
-//private:
-//	// Асинхронная работа. Синхронизация не нужна
-//	std::map<handle, Handler> m_handlers;
-//};
+private:
+	using HandlersMap = std::map<handle, std::unique_ptr<Handler>>;
+	using HandlersIt = HandlersMap::iterator;
 
-//#endif // ASYNCSOC_H
+	static HandlersMap m_handlers;
+	static std::mutex m_handlertsMutex;
+};
+
+#endif // ASYNCSOC_H

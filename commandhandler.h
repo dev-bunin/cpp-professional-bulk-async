@@ -5,6 +5,7 @@
 #include <queue>
 #include <chrono>
 #include <memory>
+#include <iostream>
 
 class QueueInterface {
 public:
@@ -16,15 +17,20 @@ public:
 };
 
 class QueueBase : public QueueInterface {
+	using Time = std::chrono::time_point<std::chrono::system_clock>;
+
 public:
 	QueueBase();
 	virtual bool isFinished();
 	virtual void exec();
 	virtual void addCommand(const std::string &command);
 
+	std::string getCommands() const;
+	Time getStratTime() const;
+
 protected:
 	std::queue<std::string> m_commands;
-	std::chrono::time_point<std::chrono::system_clock> m_startTime;
+	Time m_startTime;
 
 	void saveToFile(const std::string &result);
 };
@@ -51,6 +57,7 @@ private:
 
 class Handler {
 public:
+	Handler() {std::cout << __FUNCTION__ << std::endl;};
 	Handler(size_t blockSize);
 	~Handler();
 

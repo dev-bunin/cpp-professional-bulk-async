@@ -1,20 +1,45 @@
-//#include "asyncsoc.h"
+#include "asyncsoc.h"
+#include "commandhandler.h"
 
-//using namespace std;
+using namespace std;
 
-//AsyncSoc::handle AsyncSoc::connect(std::size_t block_size)
-//{
-//	static int id = 0;
-//	m_handlers.emplace(++id, Handler(block_size));
-//	return id;
-//}
+std::map<AsyncSoc::handle, std::unique_ptr<Handler>> AsyncSoc::m_handlers;
+std::mutex AsyncSoc::m_handlertsMutex;
 
-//void AsyncSoc::receive(handle handle, const char *data, std::size_t size)
-//{
-//	m_handlers[handle].input(string(data, size));
-//}
+AsyncSoc::handle AsyncSoc::connect(std::size_t block_size)
+{
+	static int id = 0;
+	lock_guard<mutex> lg(m_handlertsMutex);
+	m_handlers.emplace(++id, make_unique<Handler>(block_size));
+	return id;
+}
 
-//void AsyncSoc::disconnect(handle handle)
-//{
-//	m_handlers.erase(m_handlers.find(handle));
-//}
+void AsyncSoc::receive(handle handle, const char *data, std::size_t size)
+{
+	HandlersIt it;
+	{
+		// Под мьютексом только поиск
+		lock_guard<mutex> lg(m_handlertsMutex);
+		it = m_handlers.find(handle);
+	}
+
+	if (it == m_handlers.end()) {
+		return;
+	}
+	it->second->input(string(data, size));
+}
+
+void AsyncSoc::disconnect(handle handle)
+{
+	HandlersIt it;
+	{
+		// Под мьютексом только поиск
+		lock_guard<mutex> lg(m_handlertsMutex);
+		it = m_handlers.find(handle);
+	}
+
+	if (it == m_handlers.end()) {
+		return;
+	}
+	m_handlers.erase(it);
+}

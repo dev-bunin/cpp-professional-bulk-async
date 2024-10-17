@@ -113,6 +113,7 @@ void parseCommand(const int maxCommandCount, std::istream &istream)
 Handler::Handler(size_t blockSize)
 	:m_blockSize(blockSize)
 {
+	std::cout << __FUNCTION__ << std::endl;
 }
 
 Handler::~Handler()
@@ -120,6 +121,7 @@ Handler::~Handler()
 	if (m_command) {
 		m_command->exec();
 	}
+	std::cout << __FUNCTION__ << std::endl;
 }
 
 void Handler::input(const std::string &data)
