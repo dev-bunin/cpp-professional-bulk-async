@@ -7,29 +7,32 @@
 #include <memory>
 #include <iostream>
 
+class LoggerInterface;
+
 class QueueInterface {
 public:
 	virtual ~QueueInterface()  = default;
 
 	virtual bool isFinished() = 0;
-	virtual void exec() = 0;
 	virtual void addCommand(const std::string &command) = 0;
+	virtual bool check() = 0;
+	virtual bool finished() = 0;
 };
 
 class QueueBase : public QueueInterface {
 	using Time = std::chrono::time_point<std::chrono::system_clock>;
-
+	using Loggers = std::vector<std::weak_ptr<LoggerInterface>>;
 public:
 	QueueBase();
-	virtual bool isFinished();
-	virtual void exec();
-	virtual void addCommand(const std::string &command);
+	virtual bool isFinished() override;
+	virtual void addCommand(const std::string &command) override;
+	void clear();
 
-	std::string getCommands() const;
-	Time getStratTime() const;
+	virtual std::string getCommands();
+	Time getStratTime();
 
 protected:
-	std::queue<std::string> m_commands;
+	std::vector<std::string> m_commands;
 	Time m_startTime;
 
 	void saveToFile(const std::string &result);
@@ -37,39 +40,49 @@ protected:
 
 class DynamicQueue : public QueueBase {
 public:
-	DynamicQueue() = default;
+	DynamicQueue();
 
 	bool isFinished() override;
 	void addCommand(const std::string &command) override;
-	void exec() override;
+	bool check() override;
+	bool finished() override;
+
 private:
 	int m_deep = 0;
 };
 
 class LimitedQueue : public QueueBase {
 public:
-	LimitedQueue(int maxCommandCount);
+	LimitedQueue(size_t maxCommandCount);
 
 	void addCommand(const std::string &command) override;
+	bool check() override;
+	bool finished() override;
+
 private:
-	int m_maxCommandCount;
+	size_t m_maxCommandCount;
 };
 
 class Handler {
 public:
-	Handler() {std::cout << __FUNCTION__ << std::endl;};
+	Handler();
 	Handler(size_t blockSize);
 	~Handler();
 
 	void input(const std::string &data);
+	void addLogger(std::weak_ptr<LoggerInterface> logger);
 
 private:
+	void addCommand(const std::string &command);
+	void doCommand();
+
 	enum CommandType {
 		None,
 		Queue,
 		Limited
 	};
 
+	std::vector<std::weak_ptr<LoggerInterface>> m_loggers;
 	std::unique_ptr<QueueBase> m_command;
 	CommandType m_type = CommandType::None;
 	size_t m_blockSize;

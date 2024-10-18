@@ -1,5 +1,7 @@
 #include "commandhandler.h"
+#include "consolelogger.h"
 
+#include <memory>
 #include <memory>
 #include <iostream>
 #include <fstream>
@@ -8,7 +10,6 @@ using namespace std;
 
 QueueBase::QueueBase()
 {
-	m_startTime = chrono::system_clock::now();
 }
 
 bool QueueBase::isFinished()
@@ -16,27 +17,33 @@ bool QueueBase::isFinished()
 	return m_commands.empty();
 }
 
-void QueueBase::exec()
+void QueueBase::addCommand(const std::string &command)
 {
-	if (m_commands.empty()) {
-		return;
-	}
+	m_commands.push_back(command);
+}
+
+void QueueBase::clear()
+{
+	m_commands.clear();
+}
+
+string QueueBase::getCommands()
+{
 	bool firstIt = true;
 	string result;
-	for (; !m_commands.empty(); m_commands.pop()) {
+	for (auto it = m_commands.begin(); it != m_commands.end(); ++it) {
 		if (!firstIt) {
 			result += ", ";
 		}
 		firstIt = false;
-		result += m_commands.front();
+		result += *it;
 	}
-	cout << result << endl;
-	saveToFile(result);
+	return result;
 }
 
-void QueueBase::addCommand(const std::string &command)
+QueueBase::Time QueueBase::getStratTime()
 {
-	m_commands.push(command);
+	return m_startTime;
 }
 
 void QueueBase::saveToFile(const std::string &result)
@@ -52,17 +59,33 @@ void QueueBase::saveToFile(const std::string &result)
 	outFile.close();
 }
 
-LimitedQueue::LimitedQueue(int maxCommandCount)
+LimitedQueue::LimitedQueue(size_t maxCommandCount)
 	: m_maxCommandCount(maxCommandCount)
 {
 }
 
-void LimitedQueue::addCommand(const string &command)
+void LimitedQueue::addCommand(const std::string &command)
 {
-	QueueBase::addCommand(command);
-	if (m_commands.size() >= m_maxCommandCount) {
-		exec();
+	if (m_commands.empty()) {
+		m_startTime = chrono::system_clock::now();
 	}
+	QueueBase::addCommand(command);
+}
+
+bool LimitedQueue::check()
+{
+	return true;
+}
+
+bool LimitedQueue::finished()
+{
+	return m_maxCommandCount <= m_commands.size();
+}
+
+DynamicQueue::DynamicQueue()
+{
+	// Фиксируем время при создании
+	m_startTime = chrono::system_clock::now();
 }
 
 bool DynamicQueue::isFinished()
@@ -79,21 +102,20 @@ void DynamicQueue::addCommand(const std::string &command)
 	}
 	if (command == "}") {
 		--m_deep;
-		if (m_deep == 0) {
-			exec();
-		}
+
 		return;
 	}
 	QueueBase::addCommand(command);
 }
 
-void DynamicQueue::exec()
+bool DynamicQueue::check()
 {
-	if (m_deep != 0) {
-		// Если логический блок не закончен, то блок игнорируется
-		return;
-	}
-	QueueBase::exec();
+	return m_deep == 0;
+}
+
+bool DynamicQueue::finished()
+{
+	return m_deep == 0;
 }
 
 void parseCommand(const int maxCommandCount, std::istream &istream)
@@ -113,15 +135,13 @@ void parseCommand(const int maxCommandCount, std::istream &istream)
 Handler::Handler(size_t blockSize)
 	:m_blockSize(blockSize)
 {
-	std::cout << __FUNCTION__ << std::endl;
 }
 
 Handler::~Handler()
 {
 	if (m_command) {
-		m_command->exec();
+		doCommand();
 	}
-	std::cout << __FUNCTION__ << std::endl;
 }
 
 void Handler::input(const std::string &data)
@@ -131,7 +151,7 @@ void Handler::input(const std::string &data)
 	} else if (data == "{") {
 		switch (m_type) {
 		case CommandType::Limited:
-			m_command->exec();
+			doCommand();
 			//FALLTHROUGH
 
 		case CommandType::None:
@@ -156,11 +176,35 @@ void Handler::input(const std::string &data)
 		}
 	}
 
-	m_command->addCommand(data);
+	addCommand(data);
 
 	// Если очередь команд завершилась, удаляем
 	if (m_command && m_command->isFinished()) {
 		m_type = CommandType::None;
 		m_command.reset();
 	}
+}
+
+void Handler::addLogger(std::weak_ptr<LoggerInterface> logger)
+{
+	m_loggers.push_back(logger);
+}
+
+void Handler::addCommand(const std::string &command)
+{
+	m_command->addCommand(command);
+	if (m_command->finished()) {
+		doCommand();
+	}
+}
+
+void Handler::doCommand()
+{
+	if (!m_command->check()) {
+		return;
+	}
+	for (auto &logger : m_loggers) {
+		logger.lock()->write(*m_command);
+	}
+	m_command->clear();
 }
