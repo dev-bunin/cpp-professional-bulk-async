@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.5)
 
 set(PATCH_VERSION "2" CACHE INTERNAL "Patch version")
-set(PROJECT_VESRION 0.1.${PATCH_VERSION})
+set(PROJECT_VESRION 0.0.${PATCH_VERSION})
 
 project(async_static VERSION ${PROJECT_VESRION})
 project(async VERSION ${PROJECT_VESRION})
