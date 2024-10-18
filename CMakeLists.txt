@@ -49,3 +49,7 @@ else ()
         -Wall -Wextra -pedantic -Werror
         )
 endif()
+
+install(TARGETS async_static RUNTIME DESTINATION lib)
+install(TARGETS async RUNTIME DESTINATION lib)
+install(TARGETS bulk RUNTIME DESTINATION bin)
